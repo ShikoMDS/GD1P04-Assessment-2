@@ -4,8 +4,7 @@
 #include <glfw3.h>
 #include <iostream>
 
-class ShaderLoader
-{
+class ShaderLoader {
 public:
     static GLuint createProgram(const char* VertexShaderFilename, const char* FragmentShaderFilename);
 

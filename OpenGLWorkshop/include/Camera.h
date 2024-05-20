@@ -1,5 +1,4 @@
-#ifndef CAMERA_H
-#define CAMERA_H
+#pragma once
 
 #include <glm.hpp>
 #include <gtc/matrix_transform.hpp>
@@ -29,5 +28,3 @@ private:
     glm::vec3 target;
     glm::vec3 up;
 };
-
-#endif // CAMERA_H

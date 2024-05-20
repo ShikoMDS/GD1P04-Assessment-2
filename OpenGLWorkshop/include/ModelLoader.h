@@ -1,5 +1,4 @@
-#ifndef MODELLOADER_H
-#define MODELLOADER_H
+#pragma once
 #define TINYOBJLOADER_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION
 
@@ -23,5 +22,3 @@ private:
     void setupModel(Model& model, const std::vector<float>& vertices, const std::vector<unsigned int>& indices);
     GLuint loadTexture(const char* path);
 };
-
-#endif // MODELLOADER_H
