@@ -37,42 +37,72 @@ void checkOpenGLError(const std::string& stmt);
 
 void processInput(GLFWwindow* window);
 
-Camera camera(10.0f, 1.0f);
+Camera camera(20.0f, 1.0f);
 
+// Function to process object movement
 void processObjectMovement(GLFWwindow* window, float deltaTime) {
     float movementSpeed = 5.0f * deltaTime;
 
-    glm::vec3 cameraRight = glm::normalize(glm::vec3(camera.getViewMatrix()[0]));
-    glm::vec3 cameraUp = glm::normalize(glm::vec3(camera.getViewMatrix()[1]));
-    glm::vec3 cameraForward = glm::normalize(glm::vec3(camera.getViewMatrix()[2]));
+    glm::vec3 worldForward = glm::vec3(0.0f, 0.0f, -1.0f); // Fixed forward direction
+    glm::vec3 worldRight = glm::vec3(1.0f, 0.0f, 0.0f);    // Fixed right direction
+    glm::vec3 worldUp = glm::vec3(0.0f, 1.0f, 0.0f);       // Fixed up direction
 
-    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
-        objectPosition += cameraForward * movementSpeed;
-    }
-    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
-        objectPosition -= cameraForward * movementSpeed;
-    }
     if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
-        objectPosition -= cameraRight * movementSpeed;
+        objectPosition += worldForward * movementSpeed;
     }
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
-        objectPosition += cameraRight * movementSpeed;
+        objectPosition -= worldForward * movementSpeed;
     }
-    if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS) {
-        objectPosition += cameraUp * movementSpeed;
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
+        objectPosition -= worldRight * movementSpeed;
+    }
+    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
+        objectPosition += worldRight * movementSpeed;
     }
     if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS) {
-        objectPosition -= cameraUp * movementSpeed;
+        objectPosition += worldUp * movementSpeed;
+    }
+    if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS) {
+        objectPosition -= worldUp * movementSpeed;
     }
 }
 
-void renderScene(GLuint shaderProgram, const Model& model, GLuint instanceBuffer, GLuint instanceCount) {
+// Function to render the scene
+void renderScene(GLuint shaderProgram, const Model& model, GLuint instanceBuffer, GLuint instanceCount, const std::vector<glm::mat4>& modelMatrices) {
     // Update camera
     float deltaTime = 0.016f; // assuming a fixed timestep for simplicity
     camera.update(deltaTime);
 
     // Handle camera input
     camera.processInput(window, deltaTime);
+
+    // Use the camera matrices for rendering
+    glm::mat4 projection = camera.getProjectionMatrix(static_cast<float>(WIDTH) / HEIGHT);
+    glm::mat4 view = camera.getViewMatrix();
+
+    // Render instanced objects
+    glBindVertexArray(model.VAO);
+    for (unsigned int i = 0; i < instanceCount; i++) {
+        glm::mat4 mvp = projection * view * modelMatrices[i];
+        GLuint mvpLocation = glGetUniformLocation(shaderProgram, "mvp");
+        if (mvpLocation == -1) {
+            std::cerr << "Could not find uniform location for 'mvp'" << std::endl;
+        }
+        else {
+            glUniformMatrix4fv(mvpLocation, 1, GL_FALSE, glm::value_ptr(mvp));
+        }
+        glDrawElements(GL_TRIANGLES, model.indexCount, GL_UNSIGNED_INT, 0);
+    }
+    glBindVertexArray(0);
+
+    checkOpenGLError("renderScene");
+}
+
+// Function to render the moving object
+void renderMovingObject(GLuint shaderProgram, const Model& movingObjectModel) {
+    // Update camera
+    float deltaTime = 0.016f; // assuming a fixed timestep for simplicity
+    camera.update(deltaTime);
 
     // Handle object movement
     processObjectMovement(window, deltaTime);
@@ -82,37 +112,30 @@ void renderScene(GLuint shaderProgram, const Model& model, GLuint instanceBuffer
     glm::mat4 view = camera.getViewMatrix();
     glm::mat4 modelMatrix = glm::translate(glm::mat4(1.0f), objectPosition);
 
+    // Scale down the moving object
+    modelMatrix = glm::scale(modelMatrix, glm::vec3(0.001f)); // Adjust this value to scale the ship
+
+    // Rotate the ship to face the screen
+    modelMatrix = glm::rotate(modelMatrix, glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f)); // Adjust the angle and axis as needed
+
     glm::mat4 mvp = projection * view * modelMatrix;
-    GLuint viewProjectionMatrixLocation = glGetUniformLocation(shaderProgram, "viewProjectionMatrix");
-    if (viewProjectionMatrixLocation == -1) {
-        std::cerr << "Could not find uniform location for 'viewProjectionMatrix'" << std::endl;
+    GLuint mvpLocation = glGetUniformLocation(shaderProgram, "mvp");
+    if (mvpLocation == -1) {
+        std::cerr << "Could not find uniform location for 'mvp'" << std::endl;
     }
     else {
-        glUniformMatrix4fv(viewProjectionMatrixLocation, 1, GL_FALSE, glm::value_ptr(mvp));
+        glUniformMatrix4fv(mvpLocation, 1, GL_FALSE, glm::value_ptr(mvp));
     }
 
-    /*
-    // Print matrices for debugging
-    std::cout << "View Matrix: " << glm::to_string(view) << std::endl;
-    std::cout << "Projection Matrix: " << glm::to_string(projection) << std::endl;
-    std::cout << "Model Matrix: " << glm::to_string(modelMatrix) << std::endl;
-    std::cout << "MVP Matrix: " << glm::to_string(mvp) << std::endl;
-    */
-
     // Bind the model's VAO and draw
-    glBindVertexArray(model.VAO);
-    glBindBuffer(GL_ARRAY_BUFFER, instanceBuffer);
-
-    // Ensure texture is bound if using a texture
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, model.texture);
-
-    glDrawElementsInstanced(GL_TRIANGLES, model.indexCount, GL_UNSIGNED_INT, 0, instanceCount);
+    glBindVertexArray(movingObjectModel.VAO);
+    glDrawElements(GL_TRIANGLES, movingObjectModel.indexCount, GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
 
-    checkOpenGLError("renderScene");
+    checkOpenGLError("renderMovingObject");
 }
 
+// Process input function
 void processInput(GLFWwindow* window) {
     static bool cursorVisible = true;
     static bool wireframeMode = false;
@@ -159,10 +182,12 @@ void processInput(GLFWwindow* window) {
     }
 }
 
+// Check if mouse is over the UI quad
 bool isMouseOverQuad(double mouseX, double mouseY, float quadX, float quadY, float quadWidth, float quadHeight) {
     return mouseX >= quadX && mouseX <= quadX + quadWidth && mouseY >= quadY && mouseY <= quadY + quadHeight;
 }
 
+// Render UI element
 void renderUIElement(GLuint shaderProgram) {
     // UI rendering setup
     glm::mat4 orthoProjection = glm::ortho(0.0f, static_cast<float>(WIDTH), static_cast<float>(HEIGHT), 0.0f);
@@ -170,6 +195,8 @@ void renderUIElement(GLuint shaderProgram) {
     glm::mat4 mvp = orthoProjection * model;
 
     // Pass mvp to shader and render quad
+    GLuint mvpLocation = glGetUniformLocation(shaderProgram, "mvp");
+    glUniformMatrix4fv(mvpLocation, 1, GL_FALSE, glm::value_ptr(mvp));
 
     double xpos, ypos;
     glfwGetCursorPos(window, &xpos, &ypos);
@@ -196,6 +223,12 @@ int main() {
     Model model = modelLoader.loadModel("resources/models/SciFiSpace/SM_Prop_Mine_01.obj");
     if (model.VAO == 0) {
         std::cerr << "Failed to load model" << std::endl;
+        return -1;
+    }
+
+    Model movingObjectModel = modelLoader.loadModel("resources/models/SciFiSpace/SM_Ship_Fighter_02.obj");
+    if (movingObjectModel.VAO == 0) {
+        std::cerr << "Failed to load moving object model" << std::endl;
         return -1;
     }
 
@@ -240,7 +273,8 @@ int main() {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glUseProgram(shaderProgram);
 
-        renderScene(shaderProgram, model, instanceBuffer, instanceCount);
+        renderScene(shaderProgram, model, instanceBuffer, instanceCount, modelMatrices);
+        renderMovingObject(shaderProgram, movingObjectModel);
         renderUIElement(shaderProgram);
 
         glfwSwapBuffers(window);
@@ -251,6 +285,7 @@ int main() {
     return 0;
 }
 
+// Function to initialize OpenGL
 bool initOpenGL(GLFWwindow*& window) {
     if (!glfwInit()) {
         std::cerr << "Failed to initialize GLFW" << std::endl;
@@ -286,6 +321,7 @@ bool initOpenGL(GLFWwindow*& window) {
     return true;
 }
 
+// Key callback function
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
         glfwSetWindowShouldClose(window, GLFW_TRUE);
@@ -296,6 +332,7 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
     }
 }
 
+// Check OpenGL errors
 void checkOpenGLError(const std::string& stmt) {
     GLenum err = glGetError();
     if (err != GL_NO_ERROR) {
