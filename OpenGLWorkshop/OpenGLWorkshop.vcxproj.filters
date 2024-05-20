@@ -33,15 +33,12 @@
     <ClCompile Include="src\Renderer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\UI.cpp">
+    <ClCompile Include="src\Ui.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\ShaderLoader.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="include\tiny_obj_loader.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="include\ModelLoader.h">
@@ -50,7 +47,7 @@
     <ClInclude Include="include\Camera.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="include\UI.h">
+    <ClInclude Include="include\Ui.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

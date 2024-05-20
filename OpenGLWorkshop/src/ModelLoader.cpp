@@ -1,102 +1,132 @@
+/***********************************************************************
+Bachelor of Software Engineering
+Media Design School
+Auckland
+New Zealand
+
+(c) 2024 Media Design School
+
+File Name : ModelLoader.cpp
+Description : Implementations for model loading through tinyobjloader and
+			  textures with STB following OpenGL rendering pipeline
+Author : Shikomisen (Ayoub Ahmad)
+Mail : ayoub.ahmad@mds.ac.nz
+**************************************************************************/
+
 #include "ModelLoader.h"
 #include "tiny_obj_loader.h"
-#include "stb_image.h" // Include the stb_image header
+#include "stb_image.h"
 
-Model ModelLoader::loadModel(const char* path) {
-    Model model = {};
-    tinyobj::attrib_t attrib;
-    std::vector<tinyobj::shape_t> shapes;
-    std::vector<tinyobj::material_t> materials;
-    std::string warn, err;
+Model ModelLoader::loadModel(const char* ModelPath, const char* TexturePath) const
+{
+	Model Model = {};
+	tinyobj::attrib_t Attrib;
+	std::vector<tinyobj::shape_t> Shapes;
+	std::vector<tinyobj::material_t> Materials;
+	std::string Warn, Err;
 
-    bool ret = tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, path);
-    if (!ret) {
-        std::cerr << "Failed to load model: " << err << std::endl;
-        return model;
-    }
+	bool Ret = LoadObj(&Attrib, &Shapes, &Materials, &Warn, &Err, ModelPath);
+	if (!Ret)
+	{
+		std::cerr << "Failed to load model: " << Err << std::endl;
+		return Model;
+	}
 
-    std::vector<float> vertices;
-    std::vector<unsigned int> indices;
+	std::vector<float> Vertices;
+	std::vector<unsigned int> Indices;
 
-    for (const auto& shape : shapes) {
-        for (const auto& index : shape.mesh.indices) {
-            vertices.push_back(attrib.vertices[3 * index.vertex_index + 0]);
-            vertices.push_back(attrib.vertices[3 * index.vertex_index + 1]);
-            vertices.push_back(attrib.vertices[3 * index.vertex_index + 2]);
-            if (index.texcoord_index >= 0) {
-                vertices.push_back(attrib.texcoords[2 * index.texcoord_index + 0]);
-                vertices.push_back(attrib.texcoords[2 * index.texcoord_index + 1]);
-            }
-            else {
-                vertices.push_back(0.0f);
-                vertices.push_back(0.0f);
-            }
-            indices.push_back(indices.size());
-        }
-    }
+	// Structured binding
+	for (const auto& [name, mesh, lines, points] : Shapes)
+	{
+		for (const auto& [vertex_index, normal_index, texcoord_index] : mesh.indices)
+		{
+			Vertices.push_back(Attrib.vertices[3 * static_cast<size_t>(vertex_index) + 0]);
+			Vertices.push_back(Attrib.vertices[3 * static_cast<size_t>(vertex_index) + 1]);
+			Vertices.push_back(Attrib.vertices[3 * static_cast<size_t>(vertex_index) + 2]);
+			if (texcoord_index >= 0)
+			{
+				Vertices.push_back(Attrib.texcoords[2 * static_cast<size_t>(texcoord_index) + 0]);
+				Vertices.push_back(Attrib.texcoords[2 * static_cast<size_t>(texcoord_index) + 1]);
+			}
+			else
+			{
+				Vertices.push_back(0.0f);
+				Vertices.push_back(0.0f);
+			}
+			Indices.push_back(Indices.size());
+		}
+	}
 
-    setupModel(model, vertices, indices);
+	setupModel(Model, Vertices, Indices);
 
-    // Load the texture
-    model.texture = loadTexture("resources/textures/PolygonSciFiSpace_Texture_01_A.png");
+	// Load the texture
+	Model.Texture = loadTexture(TexturePath);
+	// TODO: Load ship and instanced objects with different textures
 
-    return model;
+	return Model;
 }
 
-void ModelLoader::setupModel(Model& model, const std::vector<float>& vertices, const std::vector<unsigned int>& indices) {
-    glGenVertexArrays(1, &model.VAO);
-    glGenBuffers(1, &model.VBO);
-    glGenBuffers(1, &model.EBO);
+void ModelLoader::setupModel(Model& Model, const std::vector<float>& Vertices, const std::vector<unsigned int>& Indices)
+{
+	glGenVertexArrays(1, &Model.Vao);
+	glGenBuffers(1, &Model.Vbo);
+	glGenBuffers(1, &Model.Ebo);
 
-    glBindVertexArray(model.VAO);
+	glBindVertexArray(Model.Vao);
 
-    glBindBuffer(GL_ARRAY_BUFFER, model.VBO);
-    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_STATIC_DRAW);
+	glBindBuffer(GL_ARRAY_BUFFER, Model.Vbo);
+	glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(Vertices.size() * sizeof(float)), Vertices.data(),
+	             GL_STATIC_DRAW);
 
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, model.EBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int), indices.data(), GL_STATIC_DRAW);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, Model.Ebo);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, static_cast<GLsizeiptr>(Indices.size() * sizeof(unsigned int)),
+	             Indices.data(), GL_STATIC_DRAW);
 
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), static_cast<void*>(nullptr));
 
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), reinterpret_cast<void*>(3 * sizeof(float)));
 
-    glBindVertexArray(0);
+	glBindVertexArray(0);
 
-    model.indexCount = indices.size();
+	Model.IndexCount = static_cast<int>(Indices.size());
 }
 
-GLuint ModelLoader::loadTexture(const char* path) {
-    GLuint textureID;
-    glGenTextures(1, &textureID);
+GLuint ModelLoader::loadTexture(const char* Path)
+{
+	GLuint TextureId;
+	glGenTextures(1, &TextureId);
 
-    int width, height, nrComponents;
-    unsigned char* data = stbi_load(path, &width, &height, &nrComponents, 0);
-    if (data) {
-        GLenum format;
-        if (nrComponents == 1)
-            format = GL_RED;
-        else if (nrComponents == 3)
-            format = GL_RGB;
-        else if (nrComponents == 4)
-            format = GL_RGBA;
+	int Width, Height, NrComponents;
+	unsigned char* Data = stbi_load(Path, &Width, &Height, &NrComponents, 0);
+	if (Data)
+	{
+		GLenum Format = 0;
+		if (NrComponents == 1)
+			Format = GL_RED;
+		else if (NrComponents == 3)
+			Format = GL_RGB;
+		else if (NrComponents == 4)
+			Format = GL_RGBA;
 
-        glBindTexture(GL_TEXTURE_2D, textureID);
-        glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
-        glGenerateMipmap(GL_TEXTURE_2D);
+		glBindTexture(GL_TEXTURE_2D, TextureId);
+		glTexImage2D(GL_TEXTURE_2D, 0, static_cast<GLint>(Format), Width, Height, 0, static_cast<GLint>(Format),
+		             GL_UNSIGNED_BYTE, Data);
+		glGenerateMipmap(GL_TEXTURE_2D);
 
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-        stbi_image_free(data);
-    }
-    else {
-        std::cerr << "Texture failed to load at path: " << path << std::endl;
-        stbi_image_free(data);
-    }
+		stbi_image_free(Data);
+	}
+	else
+	{
+		std::cerr << "Texture failed to load at path: " << Path << std::endl;
+		stbi_image_free(Data);
+	}
 
-    return textureID;
+	return TextureId;
 }

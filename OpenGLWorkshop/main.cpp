@@ -1,170 +1,231 @@
+/***********************************************************************
+Bachelor of Software Engineering
+Media Design School
+Auckland
+New Zealand
+
+(c) 2024 Media Design School
+
+File Name : main.cpp
+Description : Main entry point for OpenGL Demo 2 GD1P04 Assessment 2
+Author : Shikomisen (Ayoub Ahmad)
+Mail : ayoub.ahmad@mds.ac.nz
+**************************************************************************/
+
 #define GLM_ENABLE_EXPERIMENTAL
 
 #include <iostream>
 #include <vector>
 #include <cstdlib>
-#include <ctime>
+#include <random>
 #include <glm.hpp>
 #include <gtc/matrix_transform.hpp>
 #include <gtc/type_ptr.hpp>
-#include <gtx/string_cast.hpp> // For matrix printing
+#include <gtx/string_cast.hpp>
 #include <glew.h>
 #include <glfw3.h>
 #include "ShaderLoader.h"
 #include "ModelLoader.h"
 #include "Camera.h"
 #include "Renderer.h"
+// TODO: Input A, Input A+
+
 #include "UI.h"
 
 // Window dimensions
-const unsigned int WIDTH = 800;
-const unsigned int HEIGHT = 600;
-GLFWwindow* window;
-Renderer* renderer; // Declare renderer as a global variable
+constexpr unsigned int Width = 800;
+constexpr unsigned int Height = 600;
+GLFWwindow* GWindow;
+Renderer* GRenderer;
 
-// Function to initialize OpenGL and GLFW
-bool initOpenGL(GLFWwindow*& window);
+// Function to initialise OpenGL and GLFW
+bool initOpenGl(GLFWwindow*& Window);
 
 // Function to handle key events
-void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
+void keyCallback(GLFWwindow* Window, int Key, int ScanCode, int Action, int Mods);
 
 // Function to check for OpenGL errors
-void checkOpenGLError(const std::string& stmt);
+void checkOpenGlError(const std::string& Stmt);
 
-int main() {
-    if (!initOpenGL(window)) {
-        std::cerr << "Failed to initialize OpenGL" << std::endl;
+// Frame buffer size callback function
+void frameBufferSizeCallback(GLFWwindow* Window, int Width, int Height);
+
+int main()
+{
+    if (!initOpenGl(GWindow))
+    {
+        std::cerr << "Failed to initialise OpenGL" << std::endl;
         return -1;
     }
 
-    glfwSetKeyCallback(window, keyCallback);
+    glfwSetKeyCallback(GWindow, keyCallback);
+    glfwSetFramebufferSizeCallback(GWindow, frameBufferSizeCallback); // Set the framebuffer size callback
 
-    renderer = new Renderer(WIDTH, HEIGHT, window); // Initialize the renderer
+    GRenderer = new Renderer(Width, Height, GWindow); // Initialise the renderer
 
-    GLuint shaderProgram = ShaderLoader::createProgram("resources/shaders/VertexShader.vert", "resources/shaders/FragmentShader.frag");
-    if (!shaderProgram) {
+    const GLuint ShaderProgram = ShaderLoader::createProgram("resources/shaders/VertexShader.vert",
+        "resources/shaders/FragmentShader.frag");
+    if (!ShaderProgram)
+    {
         std::cerr << "Failed to create shader program" << std::endl;
         return -1;
     }
 
-    ModelLoader modelLoader;
-    Model model = modelLoader.loadModel("resources/models/SciFiSpace/SM_Prop_Mine_01.obj");
-    if (model.VAO == 0) {
+    constexpr ModelLoader LModelLoader;
+    const Model LModel = LModelLoader.loadModel("resources/models/SciFiSpace/SM_Prop_Mine_01.obj",
+        "resources/textures/PolygonSciFiSpace_Texture_01_A.png");
+    if (LModel.Vao == 0)
+    {
         std::cerr << "Failed to load model" << std::endl;
         return -1;
     }
 
-    Model movingObjectModel = modelLoader.loadModel("resources/models/SciFiSpace/SM_Ship_Fighter_02.obj");
-    if (movingObjectModel.VAO == 0) {
+    const Model MovingObjectModel = LModelLoader.loadModel("resources/models/SciFiSpace/SM_Ship_Fighter_02.obj",
+        "resources/textures/PolygonAncientWorlds_Texture_01_A.png");
+    if (MovingObjectModel.Vao == 0)
+    {
         std::cerr << "Failed to load moving object model" << std::endl;
         return -1;
     }
 
-    const unsigned int instanceCount = 1000;
-    std::vector<glm::mat4> modelMatrices(instanceCount);
-    srand(static_cast<unsigned int>(time(0)));
+    constexpr unsigned int InstanceCount = 1000;
+    std::vector<glm::mat4> ModelMatrices(InstanceCount);
 
-    for (unsigned int i = 0; i < instanceCount; i++) {
-        float angle = static_cast<float>(rand() % 360);
+    std::random_device Rd; // Random device for seed
+    std::mt19937 Gen(Rd()); // Mersenne Twister random number generator
+    std::uniform_real_distribution<float> AngleDist(0.0f, 360.0f);
+    std::uniform_real_distribution<float> DisplacementDist(-10.0f, 10.0f);
+    std::uniform_real_distribution<float> ScaleDist(0.005f, 0.01f);
 
-        // Ensure displacement provides a wide spread
-        float displacementX = static_cast<float>((rand() % 200) - 100) / 10.0f;
-        float displacementY = static_cast<float>((rand() % 200) - 100) / 10.0f;
-        float displacementZ = static_cast<float>((rand() % 200) - 100) / 10.0f;
+    for (unsigned int I = 0; I < InstanceCount; I++)
+    {
+        const float Angle = AngleDist(Gen);
 
-        glm::mat4 modelMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(displacementX, displacementY, displacementZ));
-        modelMatrix = glm::rotate(modelMatrix, glm::radians(angle), glm::vec3(1.0f, 0.3f, 0.5f));
+        const float DisplacementX = DisplacementDist(Gen);
+        const float DisplacementY = DisplacementDist(Gen);
+        const float DisplacementZ = DisplacementDist(Gen);
 
-        float scale = static_cast<float>((rand() % 20) + 5) / 1000.0f;
-        scale *= 0.5f; // Scale down the objects
-        modelMatrix = glm::scale(modelMatrix, glm::vec3(scale));
+        glm::mat4 ModelMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(DisplacementX, DisplacementY, DisplacementZ));
+        ModelMatrix = glm::rotate(ModelMatrix, glm::radians(Angle), glm::vec3(1.0f, 0.3f, 0.5f));
+        const float Scale = ScaleDist(Gen);
+        ModelMatrix = glm::scale(ModelMatrix, glm::vec3(Scale));
 
-        modelMatrices[i] = modelMatrix;
+        ModelMatrices[I] = ModelMatrix;
     }
 
-    unsigned int instanceBuffer;
-    glGenBuffers(1, &instanceBuffer);
-    glBindBuffer(GL_ARRAY_BUFFER, instanceBuffer);
-    glBufferData(GL_ARRAY_BUFFER, instanceCount * sizeof(glm::mat4), &modelMatrices[0], GL_STATIC_DRAW);
+    unsigned int InstanceBuffer;
+    glGenBuffers(1, &InstanceBuffer);
+    glBindBuffer(GL_ARRAY_BUFFER, InstanceBuffer);
+    glBufferData(GL_ARRAY_BUFFER, InstanceCount * sizeof(glm::mat4), ModelMatrices.data(), GL_STATIC_DRAW);
 
-    glBindVertexArray(model.VAO); // Ensure VAO is bound before setting vertex attributes
-    for (unsigned int i = 0; i < 4; i++) {
+    // Ensure VAO is bound before setting vertex attributes
+    glBindVertexArray(LModel.Vao);
+    for (unsigned int i = 0; i < 4; i++)
+    {
         glEnableVertexAttribArray(2 + i);
-        glVertexAttribPointer(2 + i, 4, GL_FLOAT, GL_FALSE, sizeof(glm::mat4), (void*)(i * sizeof(glm::vec4)));
+        glVertexAttribPointer(2 + i, 4, GL_FLOAT, GL_FALSE, sizeof(glm::mat4),
+            reinterpret_cast<void*>(i * sizeof(glm::vec4)));
         glVertexAttribDivisor(2 + i, 1);
     }
     glBindVertexArray(0); // Unbind VAO
 
-    while (!glfwWindowShouldClose(window)) {
-        renderer->processInput();
+    while (!glfwWindowShouldClose(GWindow))
+    {
+        GRenderer->processInput();
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        glUseProgram(shaderProgram);
+        glUseProgram(ShaderProgram);
 
-        renderer->renderScene(shaderProgram, model, instanceBuffer, instanceCount, modelMatrices);
-        renderer->renderMovingObject(shaderProgram, movingObjectModel);
-        renderer->renderUIElement(shaderProgram);
+        // Bind the texture for the main model
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, LModel.Texture);
+        glUniform1i(glGetUniformLocation(ShaderProgram, "textureSampler"), 0);
+        GRenderer->renderScene(ShaderProgram, LModel, InstanceBuffer, InstanceCount, ModelMatrices);
 
-        glfwSwapBuffers(window);
+        // Bind the texture for the moving object
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, MovingObjectModel.Texture);
+        glUniform1i(glGetUniformLocation(ShaderProgram, "textureSampler"), 0);
+        GRenderer->renderMovingObject(ShaderProgram, MovingObjectModel);
+
+        GRenderer->renderUiElement(ShaderProgram);
+
+        glfwSwapBuffers(GWindow);
         glfwPollEvents();
     }
 
-    delete renderer; // Clean up the renderer
+    delete GRenderer; // Clean up renderer
     glfwTerminate();
     return 0;
 }
 
-// Function to initialize OpenGL
-bool initOpenGL(GLFWwindow*& window) {
-    if (!glfwInit()) {
-        std::cerr << "Failed to initialize GLFW" << std::endl;
-        return false;
-    }
+// Function to initialise OpenGL
+bool initOpenGl(GLFWwindow*& Window)
+{
+	if (!glfwInit())
+	{
+		std::cerr << "Failed to initialise GLFW" << std::endl;
+		return false;
+	}
 
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
+	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    window = glfwCreateWindow(WIDTH, HEIGHT, "OpenGL Demo 2", NULL, NULL);
-    if (!window) {
-        std::cerr << "Failed to create GLFW window" << std::endl;
-        glfwTerminate();
-        return false;
-    }
+	Window = glfwCreateWindow(Width, Height, "OpenGL Demo 2", nullptr, nullptr);
+	if (!Window)
+	{
+		std::cerr << "Failed to create GLFW window" << std::endl;
+		glfwTerminate();
+		return false;
+	}
 
-    glfwMakeContextCurrent(window);
+	glfwMakeContextCurrent(Window);
 
-    if (glewInit() != GLEW_OK) {
-        std::cerr << "Failed to initialize GLEW" << std::endl;
-        return false;
-    }
+	if (glewInit() != GLEW_OK)
+	{
+		std::cerr << "Failed to initialise GLEW" << std::endl;
+		return false;
+	}
 
-    glEnable(GL_DEPTH_TEST); // Enable depth testing
-    glEnable(GL_CULL_FACE);  // Enable face culling
-    glCullFace(GL_BACK);     // Cull back faces
-    glViewport(0, 0, WIDTH, HEIGHT);
+	glEnable(GL_DEPTH_TEST); // Enable depth testing
+	glEnable(GL_CULL_FACE); // Enable culling
+	glCullFace(GL_BACK); // Cull back faces
+	glViewport(0, 0, Width, Height);
 
-    // Set the clear color
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+	// Set window color
+	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 
-    return true;
+	return true;
 }
 
 // Key callback function
-void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
-    if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
-        glfwSetWindowShouldClose(window, GLFW_TRUE);
+void keyCallback(GLFWwindow* Window, const int Key, int ScanCode, const int Action, int Mods)
+{
+	if (Key == GLFW_KEY_ESCAPE && Action == GLFW_PRESS)
+		glfwSetWindowShouldClose(Window, GLFW_TRUE);
 
-    // Toggle camera mode with space key
-    if (key == GLFW_KEY_SPACE && action == GLFW_PRESS) {
-        renderer->getCamera().toggleMode();
-    }
+	// Toggle camera mode with space key
+	if (Key == GLFW_KEY_SPACE && Action == GLFW_PRESS)
+	{
+		GRenderer->getCamera().toggleMode();
+	}
+}
+
+// Frame buffer size callback function
+void frameBufferSizeCallback(GLFWwindow* Window, const int Width, const int Height)
+{
+	glViewport(0, 0, Width, Height);
+	GRenderer->updateWindowSize(Width, Height);
+	// Add this line for renderer since it needs to be aware of the new window size
 }
 
 // Check OpenGL errors
-void checkOpenGLError(const std::string& stmt) {
-    GLenum err = glGetError();
-    if (err != GL_NO_ERROR) {
-        std::cerr << "OpenGL error (" << stmt << "): " << err << std::endl;
-    }
+void checkOpenGlError(const std::string& Stmt)
+{
+	const GLenum Err = glGetError();
+	if (Err != GL_NO_ERROR)
+	{
+		std::cerr << "OpenGL error (" << Stmt << "): " << Err << std::endl;
+	}
 }
